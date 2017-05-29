@@ -15,6 +15,7 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam LDA = 4'b0001; //Load register A from memory instruction code.
   localparam ADD = 4'b0010; //Add specified memory pointer to register A.
                             //Store the result in register A.
+  localparam JMP = 4'b1100; //Jump at some code location
   localparam OUT = 4'b1110; //Output contents of register A to output device.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
@@ -111,18 +112,17 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
       out_reg = alu_out[LED_COUNT-1 : 0];
 
   always @(*) begin
+    ctrl_reg = 0;
     case (stage_reg)
       STAGE_INIT: begin
         next_stage = STAGE_T1;
         end
       STAGE_T1: begin
-        ctrl_reg = 0;
         ctrl_reg[mi] = 1;
         ctrl_reg[co] = 1;
         next_stage = STAGE_T2;
         end
       STAGE_T2: begin
-        ctrl_reg = 0;
         ctrl_reg[ro] = 1;
         ctrl_reg[ii] = 1;
         ctrl_reg[ce] = 1;
@@ -131,21 +131,23 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
       STAGE_T3: begin
         case (ir[WIDTH-1 : ADDRESS_WIDTH])
           LDA: begin
-               ctrl_reg = 0;
                ctrl_reg[mi] = 1;
                ctrl_reg[io] = 1;
                next_stage = STAGE_T4;
                end
           ADD: begin
-               ctrl_reg = 0;
-               ctrl_reg[mi] <= 1;
-               ctrl_reg[io] <= 1;
-               next_stage <= STAGE_T4;
+               ctrl_reg[mi] = 1;
+               ctrl_reg[io] = 1;
+               next_stage = STAGE_T4;
                end
           OUT: begin
-               ctrl_reg = 0;
                ctrl_reg[ao] = 1;
                ctrl_reg[oi] = 1;
+               next_stage = STAGE_T1;
+               end
+          JMP: begin
+               ctrl_reg[j] = 1;
+               ctrl_reg[io] = 1;
                next_stage = STAGE_T1;
                end
           HLT: begin
@@ -156,13 +158,11 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
       STAGE_T4: begin
         case (ir[WIDTH-1 : ADDRESS_WIDTH])
           LDA: begin
-               ctrl_reg = 0;
                ctrl_reg[ro] = 1;
                ctrl_reg[ai] = 1;
                next_stage = STAGE_T1;
                end
           ADD: begin
-               ctrl_reg = 0;
                ctrl_reg[ro] = 1;
                ctrl_reg[bi] = 1;
                next_stage = STAGE_T5;
@@ -172,7 +172,6 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
       STAGE_T5: begin
         case (ir[WIDTH-1 : ADDRESS_WIDTH])
           ADD: begin
-               ctrl_reg = 0;
                ctrl_reg[ai] = 1;
                ctrl_reg[eo] = 1;
                next_stage = STAGE_T1;
