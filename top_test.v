@@ -1,3 +1,5 @@
+`include "top.v"
+
 module top_test;
 
   reg clk = 0;
@@ -9,7 +11,7 @@ module top_test;
   top t(clk, d1, d2, d3, d4, d5);
 
   initial begin
-    $dumpfile("top.vcd");
+    $dumpfile("top_test.vcd");
     $dumpvars;
   end
 endmodule
