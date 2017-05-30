@@ -16,6 +16,7 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam ADD = 4'b0010; //Add specified memory pointer to register A.
                             //Store the result in register A.
   localparam JMP = 4'b1100; //Jump at some code location
+  localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam OUT = 4'b1110; //Output contents of register A to output device.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
@@ -95,7 +96,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   assign leds = out_reg;
   assign pc_in = (ctrl_reg[j] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
   assign alu_in = ((ctrl_reg[ai] || ctrl_reg[bi]) && ctrl_reg[ro]) ? mem_out :
-                  (ctrl_reg[ai] && ctrl_reg[eo]) ? alu_out : 0;
+                  (ctrl_reg[ai] && ctrl_reg[eo]) ? alu_out :
+                  (ctrl_reg[ai] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
   assign mem_in = (ctrl_reg[mi] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] :
                   (ctrl_reg[mi] && ctrl_reg[co]) ? pc_out : 0;
   assign control_clk = (!ctrl_reg[hlt]) ? clk : 0;
@@ -148,6 +150,11 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
           JMP: begin
                ctrl_reg[j] = 1;
                ctrl_reg[io] = 1;
+               next_stage = STAGE_T1;
+               end
+          LDI: begin
+               ctrl_reg[io] = 1;
+               ctrl_reg[ai] = 1;
                next_stage = STAGE_T1;
                end
           HLT: begin
