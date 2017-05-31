@@ -16,6 +16,7 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam ADD = 4'b0010; //Add specified memory pointer to register A.
                             //Store the result in register A.
   localparam JMP = 4'b1100; //Jump at some code location
+  localparam JC  = 4'b1011; //Jump if carry flag is set.
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam OUT = 4'b1110; //Output contents of register A to output device.
   localparam HLT = 4'b1111; //Halt CPU control clock;
@@ -67,13 +68,14 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                                           //execution stage.
   reg [STAGE_WIDTH-1 : 0] next_stage = 0; //Keeps the next stage
   reg [LED_COUNT-1 : 0] out_reg = 0;      //Output LED register.
+  reg carry_status = 0;
   wire [ADDRESS_WIDTH-1 : 0] pc_in;       //Program counter I/O
   wire [ADDRESS_WIDTH-1 : 0] pc_out;      //
   wire [WIDTH-1 : 0] alu_in;              //ALU I/O
   wire [WIDTH-1 : 0] alu_out;             //
   wire [WIDTH-1 : 0] mem_in;              //RAM I/O
   wire [WIDTH-1 : 0] mem_out;             //
-  wire alu_carry;                         //Not used currently
+  wire alu_carry;                         //Carry signal
   wire control_clk;                       //Control clock that can be halted
 
   //CPU modules
@@ -112,6 +114,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
       ir = mem_out;
     else if (ctrl_reg[oi] && ctrl_reg[ao])
       out_reg = alu_out[LED_COUNT-1 : 0];
+    else if (ctrl_reg[ro] && ctrl_reg[bi])
+      carry_status = alu_carry;
 
   always @(*) begin
     ctrl_reg = 0;
@@ -150,6 +154,13 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
           JMP: begin
                ctrl_reg[j] = 1;
                ctrl_reg[io] = 1;
+               next_stage = STAGE_T1;
+               end
+          JC:  begin
+               if (carry_status) begin
+                 ctrl_reg[j] = 1;
+                 ctrl_reg[io] = 1;
+               end
                next_stage = STAGE_T1;
                end
           LDI: begin
