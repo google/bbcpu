@@ -3,7 +3,7 @@
 module top(input clk, output d1, output d2, output d3, output d4,
   output d5);
 
-  localparam clk_divider = 120000;
+  localparam clk_divider = 1200000;
   localparam LED_COUNT = 5;
   reg [23:0] divider = 0;
   reg out_val = 0;

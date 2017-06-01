@@ -11,14 +11,15 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam WIDTH = 8;
   localparam ADDRESS_WIDTH = WIDTH - INSTR_SIZE;
 
-  //TODO: Load externally
-  localparam LDA = 4'b0001; //Load register A from memory instruction code.
+  localparam NOP = 4'b0000; //No operation.
+  localparam LDA = 4'b0001; //Load register A from memory.
   localparam ADD = 4'b0010; //Add specified memory pointer to register A.
                             //Store the result in register A.
-  localparam JMP = 4'b1100; //Jump at some code location
-  localparam JC  = 4'b1011; //Jump if carry flag is set.
+  localparam STA = 4'b0100; //Store register A to memory.
+  localparam OUT = 4'b0101; //Output contents of register A to output device.
+  localparam JMP = 4'b0110; //Jump at some code location
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
-  localparam OUT = 4'b1110; //Output contents of register A to output device.
+  localparam JC  = 4'b1000; //Jump if carry flag is set.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
   //Control signals
@@ -101,7 +102,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                   (ctrl_reg[ai] && ctrl_reg[eo]) ? alu_out :
                   (ctrl_reg[ai] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
   assign mem_in = (ctrl_reg[mi] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] :
-                  (ctrl_reg[mi] && ctrl_reg[co]) ? pc_out : 0;
+                  (ctrl_reg[mi] && ctrl_reg[co]) ? pc_out :
+                  (ctrl_reg[ri] && ctrl_reg[ao]) ? alu_out : 0;
   assign control_clk = (!ctrl_reg[hlt]) ? clk : 0;
 
   //Control logic
@@ -141,6 +143,11 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                ctrl_reg[io] = 1;
                next_stage = STAGE_T4;
                end
+          STA: begin
+               ctrl_reg[mi] = 1;
+               ctrl_reg[io] = 1;
+               next_stage = STAGE_T4;
+               end
           ADD: begin
                ctrl_reg[mi] = 1;
                ctrl_reg[io] = 1;
@@ -168,6 +175,9 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                ctrl_reg[ai] = 1;
                next_stage = STAGE_T1;
                end
+          NOP: begin
+               next_stage = STAGE_T1;
+               end
           HLT: begin
                ctrl_reg[hlt] = 1;
                end
@@ -178,6 +188,11 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
           LDA: begin
                ctrl_reg[ro] = 1;
                ctrl_reg[ai] = 1;
+               next_stage = STAGE_T1;
+               end
+          STA: begin
+               ctrl_reg[ri] = 1;
+               ctrl_reg[ao] = 1;
                next_stage = STAGE_T1;
                end
           ADD: begin
