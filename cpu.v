@@ -15,6 +15,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam LDA = 4'b0001; //Load register A from memory.
   localparam ADD = 4'b0010; //Add specified memory pointer to register A.
                             //Store the result in register A.
+  localparam SUB = 4'b0011; //Subtract specified memory from register A.
+                            //Store the result in register A.
   localparam STA = 4'b0100; //Store register A to memory.
   localparam OUT = 4'b0101; //Output contents of register A to output device.
   localparam JMP = 4'b0110; //Jump at some code location
@@ -153,6 +155,11 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                ctrl_reg[io] = 1;
                next_stage = STAGE_T4;
                end
+          SUB: begin
+               ctrl_reg[mi] = 1;
+               ctrl_reg[io] = 1;
+               next_stage = STAGE_T4;
+               end
           OUT: begin
                ctrl_reg[ao] = 1;
                ctrl_reg[oi] = 1;
@@ -200,6 +207,12 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
                ctrl_reg[bi] = 1;
                next_stage = STAGE_T5;
                end
+          SUB: begin
+               ctrl_reg[ro] = 1;
+               ctrl_reg[bi] = 1;
+               ctrl_reg[su] = 1;
+               next_stage = STAGE_T5;
+               end
         endcase
       end
       STAGE_T5: begin
@@ -207,6 +220,12 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
           ADD: begin
                ctrl_reg[ai] = 1;
                ctrl_reg[eo] = 1;
+               next_stage = STAGE_T1;
+               end
+          SUB: begin
+               ctrl_reg[ai] = 1;
+               ctrl_reg[eo] = 1;
+               ctrl_reg[su] = 1;
                next_stage = STAGE_T1;
                end
         endcase
