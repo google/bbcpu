@@ -6,17 +6,20 @@ module ram(input clk, input enable, input addr_enable,
   parameter WIDTH = 8;
   parameter MEMORY_SIZE = 1 << ADDRESS_WIDTH;
   reg [WIDTH-1 : 0] mem [0 : MEMORY_SIZE-1];
-  reg [ADDRESS_WIDTH-1 : 0] addr_reg = 0;
+  reg [ADDRESS_WIDTH-1 : 0] addr_reg;
 
   initial begin
     $readmemb("prog.list", mem);
+    addr_reg = 0;
   end
 
   assign bus_out = (enable) ? mem[addr_reg] : {WIDTH{1'b0}};
 
-  always @(posedge clk)
-    if (write_enable)
+  always @(posedge clk) begin
+    if (write_enable) begin
       mem[addr_reg] <= bus_in;
-    else if (addr_enable)
+    end else if (addr_enable) begin
       addr_reg <= bus_in[ADDRESS_WIDTH-1 : 0];
+    end
+  end
 endmodule

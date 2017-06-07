@@ -6,7 +6,7 @@ module top_test;
   wire d1, d2, d3, d4, d5;
   always #2 clk = !clk;
   initial
-    # 100 $finish;
+    # 1500 $finish;
 
   top t(clk, d1, d2, d3, d4, d5);
 
