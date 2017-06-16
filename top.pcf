@@ -4,3 +4,4 @@ set_io d3 97
 set_io d4 96
 set_io d5 95
 set_io clk 21
+set_io uart_tx_line 8

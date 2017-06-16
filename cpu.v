@@ -1,8 +1,9 @@
 `include "alu.v"
 `include "pcounter.v"
 `include "ram.v"
+`include "uart-tx.v"
 
-module cpu(input clk, output [LED_COUNT-1 : 0] leds);
+module cpu(input clk, output [LED_COUNT-1 : 0] leds, output uart_tx_wire);
 
   parameter LED_COUNT = 5;
   localparam INSTR_SIZE = 4;
@@ -20,6 +21,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam JMP = 4'b0110; //Jump at some code location
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam JC  = 4'b1000; //Jump if carry flag is set.
+  localparam SNDA= 4'b1001; //Send register A to UART port. The instruction
+                            //will block until the transfer completes.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
   //Control signals
@@ -37,7 +40,8 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   localparam ro  = 11; //RAM out
   localparam ri  = 12; //RAM in
   localparam mi  = 13; //Address in
-  localparam SIG_COUNT = mi+1;
+  localparam tx  = 14; //UART TX enable
+  localparam SIG_COUNT = tx+1;
 
   localparam STAGE_T1 = 0;
   localparam STAGE_T2 = 1;
@@ -60,6 +64,7 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   wire [WIDTH-1 : 0] mem_in;          //RAM I/O
   wire [WIDTH-1 : 0] mem_out;         //
   wire alu_carry;                     //Carry signal
+  wire tx_idle;                       //UART TX idle signal
 
   initial begin
     ir = 0;
@@ -85,6 +90,9 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
   ram #(.WIDTH(WIDTH),.ADDRESS_WIDTH(ADDRESS_WIDTH)) memory(.clk(clk),
     .enable(ctrl_reg[ro]), .addr_enable(ctrl_reg[mi]),
     .write_enable(ctrl_reg[ri]), .bus_in(mem_in), .bus_out(mem_out));
+
+  uarttx uart(.clk(clk), .tx_start(ctrl_reg[tx]), .tx_byte(alu_out),
+    .tx(uart_tx_wire), .tx_ready(tx_idle));
 
   //Data transfer paths
   assign leds = out_reg;
@@ -153,11 +161,15 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
             next_stage <= STAGE_T1;
           end
           LDI: begin
-            ctrl_reg = (1 << io) | (1 << ai);
+            ctrl_reg <= (1 << io) | (1 << ai);
             next_stage <= STAGE_T1;
           end
           NOP: begin
             next_stage <= STAGE_T1;
+          end
+          SNDA: begin
+            ctrl_reg <= (1 << tx) | (1 << ao);
+            next_stage <= STAGE_T4;
           end
           HLT: begin
             next_stage <= STAGE_COUNT;
@@ -184,6 +196,15 @@ module cpu(input clk, output [LED_COUNT-1 : 0] leds);
           SUB: begin
             ctrl_reg <= (1 << ro) | (1 << bi) | (1 << su);
             next_stage <= STAGE_T5;
+          end
+          SNDA: begin
+            if (tx_idle) begin
+              ctrl_reg <= 0;
+              next_stage <= STAGE_T1;
+            end else begin
+              ctrl_reg <= (1 << ao);
+              next_stage <= STAGE_T4;
+            end
           end
           default: begin
             next_stage <= STAGE_COUNT;
