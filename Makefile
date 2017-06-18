@@ -1,9 +1,15 @@
 COMP = iverilog
 SIM = vvp
+SYN = yosys
+PNR = arachne-pnr
+PACK = icepack
+PROG = iceprog
 
-SOURCES = top_test
+PCF = top.pcf
+SOURCE = top
+TEST = top_test
 
-all: $(SOURCES).vcd
+all: $(TEST).vcd
 
 %.vcd: %.vvp
 	$(SIM) $<
@@ -11,7 +17,19 @@ all: $(SOURCES).vcd
 %.vvp: %.v
 	$(COMP) -o $@ $<
 
+%.blif: %.v
+	$(SYN) -q -p "synth_ice40 -blif $@" $<
+
+%.txt: %.blif
+	$(PNR) -p $(PCF) -o $@ $<
+
+%.bin: %.txt
+	$(PACK) $< $@
+
+flash: $(SOURCE).bin
+	$(PROG) $<
+
 clean:
-	rm -f *.vvp *.vcd
+	rm -f *.vvp *.vcd *.blif *.bin *.txt
 
 .PHONY: all clean
