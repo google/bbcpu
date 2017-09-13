@@ -32,4 +32,7 @@ flash: $(SOURCE).bin
 clean:
 	rm -f *.vvp *.vcd *.blif *.bin *.txt
 
-.PHONY: all clean
+reset:
+	python3 reset.py
+
+.PHONY: reset clean

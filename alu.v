@@ -1,4 +1,4 @@
-module alu(input clk, input alu_enable, input rega_enable,
+module alu(input rst, input clk, input alu_enable, input rega_enable,
   input regb_enable, input rega_write_enable,
   input regb_write_enable, input sub_enable,
   input [WIDTH-1 : 0] bus_in, output [WIDTH-1 : 0] bus_out,
@@ -7,20 +7,16 @@ module alu(input clk, input alu_enable, input rega_enable,
   parameter WIDTH = 8;
   reg [WIDTH-1 : 0] reg_a;
   reg [WIDTH-1 : 0] reg_b;
+  reg [WIDTH: 0] result;
   wire [WIDTH-1 : 0] sum;
   wire [WIDTH-1 : 0] carry;
   wire [WIDTH-1 : 0] b_in;
 
-  initial begin
-    reg_a = 0;
-    reg_b = 0;
-  end
-
   assign b_in = sub_enable ? ~(reg_b) : reg_b;
-  assign bus_out = (alu_enable) ? sum :
+  assign bus_out = (alu_enable) ? result[WIDTH-1:0] :
                    (rega_enable) ? reg_a :
                    (regb_enable) ? reg_b : {WIDTH{1'b1}};
-  assign carry_out = carry[WIDTH-1];
+  assign carry_out = result[WIDTH];
 
   genvar i;
   generate
@@ -36,10 +32,17 @@ module alu(input clk, input alu_enable, input rega_enable,
   endgenerate
 
   always @(posedge clk) begin
-    if (rega_write_enable) begin
-      reg_a <= bus_in;
-    end else if (regb_write_enable) begin
-      reg_b <= bus_in;
+    if (rst) begin
+      result <= 0;
+      reg_a <= 0;
+      reg_b <= 0;
+    end else begin
+      result <= {carry[WIDTH-1], sum};
+      if (rega_write_enable) begin
+        reg_a <= bus_in;
+      end else if (regb_write_enable) begin
+        reg_b <= bus_in;
+      end
     end
   end
 endmodule
