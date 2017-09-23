@@ -31,19 +31,18 @@ module cpu(input clk, output uart_tx_wire);
   localparam SUB = 4'b0011; //Subtract specified memory from register A.
                             //Store the result in register A.
   localparam STA = 4'b0100; //Store register A to memory.
-  localparam OUT = 4'b0101; //Output contents of register A to output device(UART).
+  localparam OUT = 4'b0101; //Send register A to UART port. The instruction
+                            //will block until the transfer completes.
   localparam JMP = 4'b0110; //Jump at some code location
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam JC  = 4'b1000; //Jump if carry flag is set.
-  localparam SNDA= 4'b1001; //Send register A to UART port. The instruction
-                            //will block until the transfer completes.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
   //Control signals
   localparam j   = 0;  //Program counter jump
   localparam co  = 1;  //Program counter output enable
   localparam ce  = 2;  //Program counter enable
-  localparam oi  = 3;  //Display/leds input
+  localparam oi  = 3;  //Display/UART tx
   localparam bi  = 4;  //Register B write enable
   localparam su  = 5;  //Subtract enable
   localparam eo  = 6;  //ALU enable
@@ -53,8 +52,7 @@ module cpu(input clk, output uart_tx_wire);
   localparam ro  = 10; //RAM out
   localparam ri  = 11; //RAM in
   localparam mi  = 12; //Address in
-  localparam tx  = 13; //UART TX enable
-  localparam SIG_COUNT = tx+1;
+  localparam SIG_COUNT = mi + 1;
 
   localparam STAGE_T0 = 0;
   localparam STAGE_T1 = 1;
@@ -100,7 +98,7 @@ module cpu(input clk, output uart_tx_wire);
     .enable(ctrl_reg[ro]), .addr_enable(ctrl_reg[mi]),
     .write_enable(ctrl_reg[ri]), .bus_in(mem_in), .bus_out(mem_out));
 
-  uarttx uart(.rst(!rstn), .clk(clk), .tx_start(ctrl_reg[tx]), .tx_byte(alu_out),
+  uarttx uart(.rst(!rstn), .clk(clk), .tx_start(ctrl_reg[oi]), .tx_byte(alu_out),
     .tx(uart_tx_wire), .tx_ready(tx_idle));
 
   //Data transfer paths
@@ -156,7 +154,7 @@ module cpu(input clk, output uart_tx_wire);
             end
             OUT: begin
               ctrl_reg <= (1 << ao) | (1 << oi);
-              stage_reg <= STAGE_T0;
+              stage_reg <= STAGE_T4;
             end
             JMP: begin
               ctrl_reg <= (1 << j) | (1 << io);
@@ -177,10 +175,6 @@ module cpu(input clk, output uart_tx_wire);
             NOP: begin
               ctrl_reg <= 0;
               stage_reg <= STAGE_T0;
-            end
-            SNDA: begin
-              ctrl_reg <= (1 << tx) | (1 << ao);
-              stage_reg <= STAGE_T4;
             end
             HLT: begin
               ctrl_reg <= 0;
@@ -209,9 +203,13 @@ module cpu(input clk, output uart_tx_wire);
               ctrl_reg <= (1 << ro) | (1 << bi) | (1 << su);
               stage_reg <= STAGE_T5;
             end
-            SNDA: begin
+            OUT: begin
               ctrl_reg <= 0;
-              stage_reg <= STAGE_T5;
+              if (tx_idle) begin
+                stage_reg <= STAGE_T0;
+              end else begin
+                stage_reg <= STAGE_T4;
+              end
             end
             default: begin
               stage_reg <= STAGE_COUNT;
@@ -228,13 +226,6 @@ module cpu(input clk, output uart_tx_wire);
             SUB: begin
               ctrl_reg <= 0;
               stage_reg <= STAGE_T6;
-            end
-            SNDA: begin
-              if (tx_idle) begin
-                stage_reg <= STAGE_T0;
-              end else begin
-                stage_reg <= STAGE_T5;
-              end
             end
             default: begin
               stage_reg <= STAGE_COUNT;

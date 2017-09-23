@@ -41,7 +41,7 @@ module uarttx(input rst, input clk, input tx_start, input [7 : 0] tx_byte,
   reg tx_val;
   reg [7 : 0] value;
 
-  assign tx_ready = (tx_state == STATE_IDLE) ? 1 : 0;
+  assign tx_ready = (tx_state != STATE_IDLE) || (tx_start) ? 0 : 1;
   assign tx = (tx_state == STATE_IDLE) ? 1 : tx_val;
 
   always @(posedge clk) begin
