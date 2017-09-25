@@ -97,6 +97,8 @@ The data comes in as binary so for nicer output you can instruct minicom to disp
 minicom -H
 ```
 
+This is not an official Google product
+
 [1]: https://www.youtube.com/user/eaterbc
 [2]: http://www.latticesemi.com/icestick
 [3]: http://www.clifford.at/yosys/
