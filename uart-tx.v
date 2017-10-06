@@ -33,7 +33,11 @@ module uarttx(input rst, input clk, input tx_start, input [7 : 0] tx_byte,
   localparam STATE_WIDTH = $clog2(STATE_FINISH);
 
   parameter CLK_SPEED = 12000000; //Hz
+`ifdef IVERILOG_SIM
+  parameter BAUD_RATE = CLK_SPEED / 2;
+`else
   parameter BAUD_RATE = 19200;
+`endif
   localparam BAUD_COUNT = CLK_SPEED / BAUD_RATE;
   localparam BAUD_REG_SIZE = $clog2(BAUD_COUNT);
   reg [BAUD_REG_SIZE-1 : 0] baud_counter;

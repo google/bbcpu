@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+`define IVERILOG_SIM
 `include "top.v"
 
 module top_test;

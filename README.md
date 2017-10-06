@@ -81,7 +81,7 @@ make flash
 
 ## Receiving output
 
-The default program will currently calculate the fibonaci sequence of numbers.
+The default program will currently calculate the fibonacci sequence of numbers.
 As mentioned before the 'OUT' instruction will transmit the register 'A' contents on the second UART port.
 The serial device will usually appear on the host as '/dev/ttyUSB1'. The configuration used right now is:
 
