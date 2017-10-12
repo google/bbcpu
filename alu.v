@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+`include "shl8.v"
+
 module alu(input rst, input clk, input alu_enable, input rega_enable,
   input regb_enable, input rega_write_enable,
-  input regb_write_enable, input sub_enable,
+  input regb_write_enable, input sub_enable, input shift_enable, input [2 : 0] shift_pos,
   input [WIDTH-1 : 0] bus_in, output [WIDTH-1 : 0] bus_out,
   output carry_out);
 
@@ -27,6 +29,8 @@ module alu(input rst, input clk, input alu_enable, input rega_enable,
   wire [WIDTH-1 : 0] sum;
   wire [WIDTH-1 : 0] carry;
   wire [WIDTH-1 : 0] b_in;
+  wire [7 : 0] shift_res;
+  wire shift_carry;
 
   assign b_in = sub_enable ? ~(reg_b) : reg_b;
   assign bus_out = (alu_enable) ? result[WIDTH-1:0] :
@@ -47,13 +51,23 @@ module alu(input rst, input clk, input alu_enable, input rega_enable,
     end
   endgenerate
 
+  shl8 left_shift(
+    .a(reg_a),
+    .shift(shift_pos),
+    .res(shift_res),
+    .carry(shift_carry));
+
   always @(posedge clk) begin
     if (rst) begin
       result <= 0;
       reg_a <= 0;
       reg_b <= 0;
     end else begin
-      result <= {carry[WIDTH-1], sum};
+      if (shift_enable) begin
+        result <= {shift_carry, shift_res};
+      end else begin
+        result <= {carry[WIDTH-1], sum};
+      end
       if (rega_write_enable) begin
         reg_a <= bus_in;
       end else if (regb_write_enable) begin

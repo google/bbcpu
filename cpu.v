@@ -36,6 +36,7 @@ module cpu(input clk, output uart_tx_wire);
   localparam JMP = 4'b0110; //Jump at some code location
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam JC  = 4'b1000; //Jump if carry flag is set.
+  localparam SHLA= 4'b1001; //Logical shift left of register A.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
   //Control signals
@@ -52,7 +53,8 @@ module cpu(input clk, output uart_tx_wire);
   localparam ro  = 10; //RAM out
   localparam ri  = 11; //RAM in
   localparam mi  = 12; //Address in
-  localparam SIG_COUNT = mi + 1;
+  localparam she = 13; //Shift enable
+  localparam SIG_COUNT = she + 1;
 
   localparam STAGE_T0 = 0;
   localparam STAGE_T1 = 1;
@@ -83,23 +85,47 @@ module cpu(input clk, output uart_tx_wire);
   wire tx_idle;                       //UART TX idle signal
 
   //CPU modules
-  pcounter #(.ADDRESS_WIDTH(ADDRESS_WIDTH)) pc(.rst(!rstn), .clk(clk),
-    .enable(ctrl_reg[ce]), .jump(ctrl_reg[j]),
-    .out_enable(ctrl_reg[co]), .bus_in(pc_in), .bus_out(pc_out));
+  pcounter #(.ADDRESS_WIDTH(ADDRESS_WIDTH)) pc(
+    .rst(!rstn),
+    .clk(clk),
+    .enable(ctrl_reg[ce]),
+    .jump(ctrl_reg[j]),
+    .out_enable(ctrl_reg[co]),
+    .bus_in(pc_in),
+    .bus_out(pc_out));
 
   //Register B output enable functionality is not used at the moment
-  alu #(.WIDTH(WIDTH)) alu(.rst(!rstn), .clk(clk), .alu_enable(ctrl_reg[eo]),
-    .rega_enable(ctrl_reg[ao]), .regb_enable(1'b0),
-    .rega_write_enable(ctrl_reg[ai]), .regb_write_enable(ctrl_reg[bi]),
-    .sub_enable(ctrl_reg[su]), .bus_in(alu_in), .bus_out(alu_out),
+  alu #(.WIDTH(WIDTH)) alu(
+    .rst(!rstn),
+    .clk(clk),
+    .alu_enable(ctrl_reg[eo]),
+    .rega_enable(ctrl_reg[ao]),
+    .regb_enable(1'b0),
+    .rega_write_enable(ctrl_reg[ai]),
+    .regb_write_enable(ctrl_reg[bi]),
+    .sub_enable(ctrl_reg[su]),
+    .shift_enable(ctrl_reg[she]),
+    .shift_pos(ir[2 : 0]),
+    .bus_in(alu_in),
+    .bus_out(alu_out),
     .carry_out(alu_carry));
 
-  ram #(.WIDTH(WIDTH),.ADDRESS_WIDTH(ADDRESS_WIDTH)) memory(.rst(!rstn), .clk(clk),
-    .enable(ctrl_reg[ro]), .addr_enable(ctrl_reg[mi]),
-    .write_enable(ctrl_reg[ri]), .bus_in(mem_in), .bus_out(mem_out));
+  ram #(.WIDTH(WIDTH),.ADDRESS_WIDTH(ADDRESS_WIDTH)) memory(
+    .rst(!rstn),
+    .clk(clk),
+    .enable(ctrl_reg[ro]),
+    .addr_enable(ctrl_reg[mi]),
+    .write_enable(ctrl_reg[ri]),
+    .bus_in(mem_in),
+    .bus_out(mem_out));
 
-  uarttx uart(.rst(!rstn), .clk(clk), .tx_start(ctrl_reg[oi]), .tx_byte(alu_out),
-    .tx(uart_tx_wire), .tx_ready(tx_idle));
+  uarttx uart(
+    .rst(!rstn),
+    .clk(clk),
+    .tx_start(ctrl_reg[oi]),
+    .tx_byte(alu_out),
+    .tx(uart_tx_wire),
+    .tx_ready(tx_idle));
 
   //Data transfer paths
   assign pc_in = (ctrl_reg[j] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
@@ -136,6 +162,10 @@ module cpu(input clk, output uart_tx_wire);
         end
         STAGE_T3: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
+            SHLA: begin
+              ctrl_reg <= (1 << she);
+              stage_reg <= STAGE_T4;
+            end
             LDA: begin
               ctrl_reg <= (1 << mi) | (1 << io);
               stage_reg <= STAGE_T4;
@@ -145,8 +175,8 @@ module cpu(input clk, output uart_tx_wire);
               stage_reg <= STAGE_T4;
             end
             ADD: begin
-                 ctrl_reg <= (1 << mi) | (1 << io);
-                 stage_reg <= STAGE_T4;
+              ctrl_reg <= (1 << mi) | (1 << io);
+              stage_reg <= STAGE_T4;
             end
             SUB: begin
               ctrl_reg <= (1 << mi) | (1 << io);
@@ -187,6 +217,11 @@ module cpu(input clk, output uart_tx_wire);
         end
         STAGE_T4: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
+            SHLA: begin
+              ctrl_reg <= (1 << ai) | (1 << eo);
+              carry_status <= alu_carry;
+              stage_reg <= STAGE_T0;
+            end
             LDA: begin
               ctrl_reg <= (1 << ro) | (1 << ai);
               stage_reg <= STAGE_T0;
@@ -235,7 +270,7 @@ module cpu(input clk, output uart_tx_wire);
         default: begin
           stage_reg <= STAGE_COUNT;
         end
-      STAGE_T6: begin
+        STAGE_T6: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
             ADD: begin
               ctrl_reg <= (1 << ai) | (1 << eo);
@@ -249,7 +284,7 @@ module cpu(input clk, output uart_tx_wire);
               stage_reg <= STAGE_COUNT;
             end
           endcase
-      end
+        end
       endcase
     end else begin
       ir <= 0;
