@@ -15,41 +15,47 @@
  */
 
 `include "shl8.v"
+`include "fadder.v"
 
-module alu(input rst, input clk, input alu_enable, input rega_enable,
-  input regb_enable, input rega_write_enable,
-  input regb_write_enable, input sub_enable, input shift_enable, input [2 : 0] shift_pos,
-  input [WIDTH-1 : 0] bus_in, output [WIDTH-1 : 0] bus_out,
+module alu(
+  input rst,
+  input clk,
+  input alu_enable,
+  input rega_enable,
+  input regb_enable,
+  input rega_write_enable,
+  input regb_write_enable,
+  input sub_enable,
+  input shift_enable,
+  input [2 : 0] shift_pos,
+  input [WIDTH-1 : 0] bus_in,
+  output [WIDTH-1 : 0] bus_out,
   output carry_out);
 
   parameter WIDTH = 8;
+
   reg [WIDTH-1 : 0] reg_a;
   reg [WIDTH-1 : 0] reg_b;
   reg [WIDTH: 0] result;
-  wire [WIDTH-1 : 0] sum;
-  wire [WIDTH-1 : 0] carry;
-  wire [WIDTH-1 : 0] b_in;
+
+  wire [WIDTH-1 : 0] adder_res;
+  wire adder_carry;
+
   wire [7 : 0] shift_res;
   wire shift_carry;
 
-  assign b_in = sub_enable ? ~(reg_b) : reg_b;
   assign bus_out = (alu_enable) ? result[WIDTH-1:0] :
                    (rega_enable) ? reg_a :
                    (regb_enable) ? reg_b : {WIDTH{1'b1}};
   assign carry_out = result[WIDTH];
 
-  genvar i;
-  generate
-    for (i = 0; i < WIDTH; i = i + 1) begin
-      if (i == 0) begin
-        assign sum[i] = (reg_a[i] ^ b_in[i]) ^ sub_enable;
-        assign carry[i] = ((reg_a[i] ^ b_in[i]) & sub_enable) | (reg_a[i] & b_in[i]);
-      end else begin
-        assign sum[i] = (reg_a[i] ^ b_in[i]) ^ carry[i-1];
-        assign carry[i] = ((reg_a[i] ^ b_in[i]) & carry[i-1]) | (reg_a[i] & b_in[i]);
-      end
-    end
-  endgenerate
+  fadder #(.WIDTH(WIDTH)) fadder(
+    .a(reg_a),
+    .b(reg_b),
+    .sub_enable(sub_enable),
+    .carry_in(sub_enable),
+    .res(adder_res),
+    .carry_out(adder_carry));
 
   shl8 left_shift(
     .a(reg_a),
@@ -66,7 +72,7 @@ module alu(input rst, input clk, input alu_enable, input rega_enable,
       if (shift_enable) begin
         result <= {shift_carry, shift_res};
       end else begin
-        result <= {carry[WIDTH-1], sum};
+        result <= {adder_carry, adder_res};
       end
       if (rega_write_enable) begin
         reg_a <= bus_in;
