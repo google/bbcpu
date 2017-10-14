@@ -23,7 +23,7 @@ module mul4x4(
   output [7 : 0] res);
 
   wire [2 : 0] shift_carry, sum_carry;
-  wire [7 : 0] a0, a1, a2, a3, sum0, sum1, sum2;
+  wire [7 : 0] a0, a1, a2, a3, sum0, sum1;
 
   assign a0 = {4'b0, b[0] ? a : {3'b0}};
 
@@ -66,8 +66,7 @@ module mul4x4(
     .b(a3),
     .sub_enable(1'b0),
     .carry_in(1'b0),
-    .res(sum2),
+    .res(res),
     .carry_out(sum_carry[2]));
 
-  assign res = sum2;
 endmodule
