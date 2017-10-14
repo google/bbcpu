@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-module shl8(input [7 : 0] a, input [2 : 0] shift, output [7 : 0] res, output carry);
+module shl8(
+  input [7 : 0] a,
+  input [2 : 0] shift,
+  output [7 : 0] res,
+  output carry);
   assign {carry, res} = (shift == 3'b000) ? {1'b0, a} :
                         (shift == 3'b001) ? {a[7 : 0], {1'b0}}:
                         (shift == 3'b010) ? {a[6 : 0], {2'b0}}:

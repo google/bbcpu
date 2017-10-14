@@ -37,6 +37,8 @@ module cpu(input clk, output uart_tx_wire);
   localparam LDI = 4'b0111; //Load 4'bit immediate value in register A.
   localparam JC  = 4'b1000; //Jump if carry flag is set.
   localparam SHLA= 4'b1001; //Logical shift left of register A.
+  localparam MULA= 4'b1010; //Unsigned multiplcation between two nibbles in register A.
+                            //Result is stored again in register A.
   localparam HLT = 4'b1111; //Halt CPU control clock;
 
   //Control signals
@@ -54,7 +56,8 @@ module cpu(input clk, output uart_tx_wire);
   localparam ri  = 11; //RAM in
   localparam mi  = 12; //Address in
   localparam she = 13; //Shift enable
-  localparam SIG_COUNT = she + 1;
+  localparam mul = 14; //Multiply enable
+  localparam SIG_COUNT = mul + 1;
 
   localparam STAGE_T0 = 0;
   localparam STAGE_T1 = 1;
@@ -103,6 +106,7 @@ module cpu(input clk, output uart_tx_wire);
     .regb_enable(1'b0),
     .rega_write_enable(ctrl_reg[ai]),
     .regb_write_enable(ctrl_reg[bi]),
+    .mul_enable(ctrl_reg[mul]),
     .sub_enable(ctrl_reg[su]),
     .shift_enable(ctrl_reg[she]),
     .shift_pos(ir[2 : 0]),
@@ -162,6 +166,10 @@ module cpu(input clk, output uart_tx_wire);
         end
         STAGE_T3: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
+            MULA: begin
+              ctrl_reg <= (1 << mul);
+              stage_reg <= STAGE_T4;
+            end
             SHLA: begin
               ctrl_reg <= (1 << she);
               stage_reg <= STAGE_T4;
@@ -217,6 +225,11 @@ module cpu(input clk, output uart_tx_wire);
         end
         STAGE_T4: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
+            MULA: begin
+              ctrl_reg <= (1 << ai) | (1 << eo);
+              carry_status <= alu_carry;
+              stage_reg <= STAGE_T0;
+            end
             SHLA: begin
               ctrl_reg <= (1 << ai) | (1 << eo);
               carry_status <= alu_carry;
