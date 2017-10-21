@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-module pcounter(input rst, input clk, input enable, input jump,
-  input out_enable, input [ADDRESS_WIDTH-1 : 0] bus_in,
+module pcounter(
+  input rst,
+  input clk,
+  input enable,
+  input jump,
+  input out_enable,
+  input [ADDRESS_WIDTH-1 : 0] bus_in,
   output [ADDRESS_WIDTH-1 : 0] bus_out);
 
   parameter ADDRESS_WIDTH = 4;

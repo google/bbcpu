@@ -17,26 +17,16 @@
 `include "mul4x4.v"
 
 module alu(
-  input rst,
-  input clk,
-  input alu_enable,
-  input rega_enable,
-  input regb_enable,
-  input rega_write_enable,
-  input regb_write_enable,
+  input [WIDTH-1 : 0] a,
+  input [WIDTH-1 : 0] b,
   input mul_enable,
   input sub_enable,
   input shift_enable,
   input [2 : 0] shift_pos,
-  input [WIDTH-1 : 0] bus_in,
-  output [WIDTH-1 : 0] bus_out,
+  output [WIDTH-1 : 0] result,
   output carry_out);
 
   parameter WIDTH = 8;
-
-  reg [WIDTH-1 : 0] reg_a;
-  reg [WIDTH-1 : 0] reg_b;
-  reg [WIDTH: 0] result;
 
   wire [WIDTH-1 : 0] adder_res;
   wire adder_carry;
@@ -46,45 +36,26 @@ module alu(
 
   wire [7: 0] mul_res;
 
-  assign bus_out = (alu_enable) ? result[WIDTH-1:0] :
-                   (rega_enable) ? reg_a :
-                   (regb_enable) ? reg_b : {WIDTH{1'b1}};
-  assign carry_out = result[WIDTH];
+  assign result = (mul_enable) ? mul_res :
+                  (shift_enable) ? shift_res :
+                  (adder_res);
+  assign carry_out = (shift_enable) ? shift_carry :
+                     adder_carry;
 
-  fadder #(.WIDTH(WIDTH)) fadder(
-    .a(reg_a),
-    .b(reg_b),
+  fadder #(.WIDTH(WIDTH)) ripple_adder(
+    .a(a),
+    .b(b),
     .sub_enable(sub_enable),
     .carry_in(sub_enable),
     .res(adder_res),
     .carry_out(adder_carry));
 
   shl8 left_shift(
-    .a(reg_a),
+    .a(a),
     .shift(shift_pos),
     .res(shift_res),
     .carry(shift_carry));
 
-  mul4x4 multiply(reg_a[3:0], reg_a[7:4], mul_res);
+  mul4x4 multiply(a[3:0], a[7:4], mul_res);
 
-  always @(posedge clk) begin
-    if (rst) begin
-      result <= 0;
-      reg_a <= 0;
-      reg_b <= 0;
-    end else begin
-      if (mul_enable) begin
-        result <= {1'b0, mul_res};
-      end else if (shift_enable) begin
-        result <= {shift_carry, shift_res};
-      end else begin
-        result <= {adder_carry, adder_res};
-      end
-      if (rega_write_enable) begin
-        reg_a <= bus_in;
-      end else if (regb_write_enable) begin
-        reg_b <= bus_in;
-      end
-    end
-  end
 endmodule

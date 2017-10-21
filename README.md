@@ -18,6 +18,8 @@ There are several notable modifications from the original design:
 
 * There is no internal bus or tri-state logic. The latter is rarely if ever supported internally on current FPGAs. Muxers
 are used as a replacement.
+* The ALU doesn't have sequantial logic.
+* Registers A, B are part of the main CPU module.
 * The control logic is not triggered by the negative clock edge. The positive clock edge is used throughout.
 * The 'OUT' instruction doesn't output to any display HW. The FPGA board used for testing does have an extra UART port.
 The instruction will transmit the value of register 'A' on the second port.

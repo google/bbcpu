@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-module uarttx(input rst, input clk, input tx_start, input [7 : 0] tx_byte,
+module uarttx(
+  input rst,
+  input clk,
+  input tx_start,
+  input [7 : 0] tx_byte,
   output tx, output tx_ready);
 
   localparam STATE_IDLE       = 0;

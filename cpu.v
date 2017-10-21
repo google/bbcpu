@@ -19,7 +19,9 @@
 `include "ram.v"
 `include "uart-tx.v"
 
-module cpu(input clk, output uart_tx_wire);
+module cpu(
+  input clk,
+  output uart_tx_wire);
   localparam INSTR_SIZE = 4;
   localparam WIDTH = 8;
   localparam ADDRESS_WIDTH = WIDTH - INSTR_SIZE;
@@ -46,17 +48,14 @@ module cpu(input clk, output uart_tx_wire);
   localparam co  = 1;  //Program counter output enable
   localparam ce  = 2;  //Program counter enable
   localparam oi  = 3;  //Display/UART tx
-  localparam bi  = 4;  //Register B write enable
-  localparam su  = 5;  //Subtract enable
-  localparam eo  = 6;  //ALU enable
-  localparam ao  = 7;  //Register A read enable
-  localparam ai  = 8;  //Register A write enable
-  localparam io  = 9;  //Instruction register read enable
-  localparam ro  = 10; //RAM out
-  localparam ri  = 11; //RAM in
-  localparam mi  = 12; //Address in
-  localparam she = 13; //Shift enable
-  localparam mul = 14; //Multiply enable
+  localparam su  = 4;  //Subtract enable
+  localparam ao  = 5;  //Register A read enable
+  localparam io  = 6;  //Instruction register read enable
+  localparam ro  = 7;  //RAM out
+  localparam ri  = 8; //RAM in
+  localparam mi  = 9; //Address in
+  localparam she = 10; //Shift enable
+  localparam mul = 11; //Multiply enable
   localparam SIG_COUNT = mul + 1;
 
   localparam STAGE_T0 = 0;
@@ -64,9 +63,7 @@ module cpu(input clk, output uart_tx_wire);
   localparam STAGE_T2 = 2;
   localparam STAGE_T3 = 3;
   localparam STAGE_T4 = 4;
-  localparam STAGE_T5 = 5;
-  localparam STAGE_T6 = 6;
-  localparam STAGE_COUNT = STAGE_T6 + 1;
+  localparam STAGE_COUNT = STAGE_T4 + 1;
   localparam STAGE_WIDTH = $clog2(STAGE_COUNT);
 
   localparam rst_size = 5;
@@ -77,14 +74,16 @@ module cpu(input clk, output uart_tx_wire);
   reg [WIDTH-1 : 0] ir;               //Instruction register.
   reg [SIG_COUNT-1 : 0] ctrl_reg;     //Holds control signal status.
   reg [STAGE_WIDTH-1 : 0] stage_reg;  //Keeps track of the current execution stage.
+  reg [WIDTH-1 : 0] reg_a;            //A CPU register
+  reg [WIDTH-1 : 0] reg_b;            //B CPU register
   reg carry_status;
+  wire [WIDTH-1 : 0] alu_out;         //ALU I/O
+  wire alu_carry;                     //
   wire [ADDRESS_WIDTH-1 : 0] pc_in;   //Program counter I/O
   wire [ADDRESS_WIDTH-1 : 0] pc_out;  //
-  wire [WIDTH-1 : 0] alu_in;          //ALU I/O
-  wire [WIDTH-1 : 0] alu_out;         //
   wire [WIDTH-1 : 0] mem_in;          //RAM I/O
   wire [WIDTH-1 : 0] mem_out;         //
-  wire alu_carry;                     //Carry signal
+  wire [WIDTH-1 : 0] mem_addr;        //
   wire tx_idle;                       //UART TX idle signal
 
   //CPU modules
@@ -97,48 +96,37 @@ module cpu(input clk, output uart_tx_wire);
     .bus_in(pc_in),
     .bus_out(pc_out));
 
-  //Register B output enable functionality is not used at the moment
   alu #(.WIDTH(WIDTH)) alu(
-    .rst(!rstn),
-    .clk(clk),
-    .alu_enable(ctrl_reg[eo]),
-    .rega_enable(ctrl_reg[ao]),
-    .regb_enable(1'b0),
-    .rega_write_enable(ctrl_reg[ai]),
-    .regb_write_enable(ctrl_reg[bi]),
+    .a(reg_a),
+    .b(reg_b),
     .mul_enable(ctrl_reg[mul]),
     .sub_enable(ctrl_reg[su]),
     .shift_enable(ctrl_reg[she]),
     .shift_pos(ir[2 : 0]),
-    .bus_in(alu_in),
-    .bus_out(alu_out),
+    .result(alu_out),
     .carry_out(alu_carry));
 
   ram #(.WIDTH(WIDTH),.ADDRESS_WIDTH(ADDRESS_WIDTH)) memory(
-    .rst(!rstn),
     .clk(clk),
     .enable(ctrl_reg[ro]),
-    .addr_enable(ctrl_reg[mi]),
     .write_enable(ctrl_reg[ri]),
-    .bus_in(mem_in),
-    .bus_out(mem_out));
+    .addr(mem_addr),
+    .data_in(mem_in),
+    .data_out(mem_out));
 
   uarttx uart(
     .rst(!rstn),
     .clk(clk),
     .tx_start(ctrl_reg[oi]),
-    .tx_byte(alu_out),
+    .tx_byte(reg_a),
     .tx(uart_tx_wire),
     .tx_ready(tx_idle));
 
   //Data transfer paths
   assign pc_in = (ctrl_reg[j] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
-  assign alu_in = ((ctrl_reg[ai] || ctrl_reg[bi]) && ctrl_reg[ro]) ? mem_out :
-                  (ctrl_reg[ai] && ctrl_reg[eo]) ? alu_out :
-                  (ctrl_reg[ai] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] : 0;
-  assign mem_in = (ctrl_reg[mi] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] :
-                  (ctrl_reg[mi] && ctrl_reg[co]) ? pc_out :
-                  (ctrl_reg[ri] && ctrl_reg[ao]) ? alu_out : 0;
+  assign mem_addr = (ctrl_reg[mi] && ctrl_reg[io]) ? ir[ADDRESS_WIDTH-1 : 0] :
+                    (ctrl_reg[mi] && ctrl_reg[co]) ? pc_out : 0;
+  assign mem_in = (ctrl_reg[ri] && ctrl_reg[ao]) ? reg_a : 0;
 
   always @(posedge clk) begin
     if (rst_cnt != rst_max) begin
@@ -152,47 +140,43 @@ module cpu(input clk, output uart_tx_wire);
     if (rstn) begin
       case (stage_reg)
         STAGE_T0: begin
-          ctrl_reg <= (1 << mi) | (1 << co);
+          ctrl_reg <= (1 << ro) | (1 << mi) | (1 << co);
           stage_reg <= STAGE_T1;
         end
         STAGE_T1: begin
-          ctrl_reg <= 1 << ro;
+          ctrl_reg <= 1 << ce;
+          ir <= mem_out;
           stage_reg <= STAGE_T2;
         end
         STAGE_T2: begin
-          ctrl_reg <= 1 << ce;
-          ir <= mem_out;
-          stage_reg <= STAGE_T3;
-        end
-        STAGE_T3: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
             MULA: begin
               ctrl_reg <= (1 << mul);
-              stage_reg <= STAGE_T4;
+              stage_reg <= STAGE_T3;
             end
             SHLA: begin
               ctrl_reg <= (1 << she);
-              stage_reg <= STAGE_T4;
+              stage_reg <= STAGE_T3;
             end
             LDA: begin
-              ctrl_reg <= (1 << mi) | (1 << io);
-              stage_reg <= STAGE_T4;
+              ctrl_reg <= (1 << ro) | (1 << mi) | (1 << io);
+              stage_reg <= STAGE_T3;
             end
             STA: begin
-              ctrl_reg <= (1 << mi) | (1 << io);
-              stage_reg <= STAGE_T4;
+              ctrl_reg <= (1 << ri) | (1 << ao) | (1 << mi) | (1 << io);
+              stage_reg <= STAGE_T0;
             end
             ADD: begin
-              ctrl_reg <= (1 << mi) | (1 << io);
-              stage_reg <= STAGE_T4;
+              ctrl_reg <= (1 << ro) | (1 << mi) | (1 << io);
+              stage_reg <= STAGE_T3;
             end
             SUB: begin
-              ctrl_reg <= (1 << mi) | (1 << io);
-              stage_reg <= STAGE_T4;
+              ctrl_reg <= (1 << ro) | (1 << mi) | (1 << io);
+              stage_reg <= STAGE_T3;
             end
             OUT: begin
-              ctrl_reg <= (1 << ao) | (1 << oi);
-              stage_reg <= STAGE_T4;
+              ctrl_reg <= 1 << oi;
+              stage_reg <= STAGE_T3;
             end
             JMP: begin
               ctrl_reg <= (1 << j) | (1 << io);
@@ -207,7 +191,8 @@ module cpu(input clk, output uart_tx_wire);
               stage_reg <= STAGE_T0;
             end
             LDI: begin
-              ctrl_reg <= (1 << io) | (1 << ai);
+              ctrl_reg <= 0;
+              reg_a <= {4'b0, ir[3 : 0]};
               stage_reg <= STAGE_T0;
             end
             NOP: begin
@@ -223,40 +208,38 @@ module cpu(input clk, output uart_tx_wire);
             end
           endcase
         end
-        STAGE_T4: begin
+        STAGE_T3: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
             MULA: begin
-              ctrl_reg <= (1 << ai) | (1 << eo);
+              reg_a <= alu_out;
               carry_status <= alu_carry;
               stage_reg <= STAGE_T0;
             end
             SHLA: begin
-              ctrl_reg <= (1 << ai) | (1 << eo);
+              reg_a <= alu_out;
               carry_status <= alu_carry;
               stage_reg <= STAGE_T0;
             end
             LDA: begin
-              ctrl_reg <= (1 << ro) | (1 << ai);
-              stage_reg <= STAGE_T0;
-            end
-            STA: begin
-              ctrl_reg <= (1 << ri) | (1 << ao);
+              reg_a <= mem_out;
               stage_reg <= STAGE_T0;
             end
             ADD: begin
-              ctrl_reg <= (1 << ro) | (1 << bi);
-              stage_reg <= STAGE_T5;
+              ctrl_reg <= 0;
+              reg_b <= mem_out;
+              stage_reg <= STAGE_T4;
             end
             SUB: begin
-              ctrl_reg <= (1 << ro) | (1 << bi) | (1 << su);
-              stage_reg <= STAGE_T5;
+              ctrl_reg <= 1 << su;
+              reg_b <= mem_out;
+              stage_reg <= STAGE_T4;
             end
             OUT: begin
               ctrl_reg <= 0;
               if (tx_idle) begin
                 stage_reg <= STAGE_T0;
               end else begin
-                stage_reg <= STAGE_T4;
+                stage_reg <= STAGE_T3;
               end
             end
             default: begin
@@ -264,16 +247,16 @@ module cpu(input clk, output uart_tx_wire);
             end
           endcase
         end
-        STAGE_T5: begin
+        STAGE_T4: begin
           case (ir[WIDTH-1 : ADDRESS_WIDTH])
             ADD: begin
-              ctrl_reg <= 0;
+              reg_a <= alu_out;
               carry_status <= alu_carry;
-              stage_reg <= STAGE_T6;
+              stage_reg <= STAGE_T0;
             end
             SUB: begin
-              ctrl_reg <= 0;
-              stage_reg <= STAGE_T6;
+              reg_a <= alu_out;
+              stage_reg <= STAGE_T0;
             end
             default: begin
               stage_reg <= STAGE_COUNT;
@@ -283,26 +266,13 @@ module cpu(input clk, output uart_tx_wire);
         default: begin
           stage_reg <= STAGE_COUNT;
         end
-        STAGE_T6: begin
-          case (ir[WIDTH-1 : ADDRESS_WIDTH])
-            ADD: begin
-              ctrl_reg <= (1 << ai) | (1 << eo);
-              stage_reg <= STAGE_T0;
-            end
-            SUB: begin
-              ctrl_reg <= (1 << ai) | (1 << eo) | (1 << su);
-              stage_reg <= STAGE_T0;
-            end
-            default: begin
-              stage_reg <= STAGE_COUNT;
-            end
-          endcase
-        end
       endcase
     end else begin
       ir <= 0;
       carry_status <= 0;
       ctrl_reg <= 0;
+      reg_a <= 0;
+      reg_b <= 0;
       stage_reg <= STAGE_T0;
     end
   end
