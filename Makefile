@@ -7,15 +7,21 @@ PROG = iceprog
 
 PCF = top.pcf
 SOURCE = top
-TEST = top_test
+TEST_FIB = top_test_fibonacci
+TEST_LOAD_OUT = top_test_load_out
+TEST_JMP = top_test_jump
+TEST_ADD = top_test_add
+TEST_SUB = top_test_sub
+TEST_SHL = top_test_shl
 
-all: $(TEST).vcd
+all: $(TEST_SHL).vcd $(TEST_SUB).vcd $(TEST_ADD).vcd $(TEST_JMP).vcd $(TEST_LOAD_OUT).vcd\
+ $(TEST_FIB).vcd
 
 %.vcd: %.vvp
 	$(SIM) $<
 
 %.vvp: %.v
-	$(COMP) -o $@ $<
+	$(COMP) -Wall -o $@ $<
 
 %.blif: %.v
 	$(SYN) -q -p "synth_ice40 -blif $@" $<

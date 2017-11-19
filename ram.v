@@ -28,7 +28,11 @@ module ram(
   reg [WIDTH-1 : 0] mem [0 : MEMORY_SIZE-1];
 
   initial begin
-    $readmemb("prog.list", mem);
+`ifdef IVERILOG_SIM
+    $readmemb(`TEST_PROG, mem);
+`else
+    $readmemb("prog_fib.list", mem);
+`endif
   end
 
   assign data_out = (enable) ? mem[addr] : {WIDTH{1'b0}};
