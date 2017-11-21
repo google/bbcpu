@@ -13,9 +13,10 @@ TEST_JMP = top_test_jump
 TEST_ADD = top_test_add
 TEST_SUB = top_test_sub
 TEST_SHL = top_test_shl
+TEST_MUL = top_test_mul
 
-all: $(TEST_SHL).vcd $(TEST_SUB).vcd $(TEST_ADD).vcd $(TEST_JMP).vcd $(TEST_LOAD_OUT).vcd\
- $(TEST_FIB).vcd
+all: $(TEST_SUB).vcd $(TEST_ADD).vcd $(TEST_JMP).vcd $(TEST_LOAD_OUT).vcd $(TEST_SHL).vcd \
+ $(TEST_MUL).vcd  $(TEST_FIB).vcd
 
 %.vcd: %.vvp
 	$(SIM) $<

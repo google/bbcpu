@@ -52,10 +52,10 @@ The simulator can be invoked via:
 make
 ```
 
-The output should be a 'top_test.vcd' file that can be viewed using GtkWave:
+The output should be a 'top_test_fibonacci.vcd' file that can be viewed using GtkWave:
 
 ```
-gtkwave top_test.vcd
+gtkwave top_test_fibonacci.vcd
 ```
 
 ## USB permissions for the FPGA board

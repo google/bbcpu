@@ -52,8 +52,8 @@ module cpu(
   localparam ao  = 5;  //Register A read enable
   localparam io  = 6;  //Instruction register read enable
   localparam ro  = 7;  //RAM out
-  localparam ri  = 8; //RAM in
-  localparam mi  = 9; //Address in
+  localparam ri  = 8;  //RAM in
+  localparam mi  = 9;  //Address in
   localparam she = 10; //Shift enable
   localparam mul = 11; //Multiply enable
   localparam SIG_COUNT = mul + 1;
